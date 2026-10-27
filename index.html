@@ -65,7 +65,13 @@ tr.pick td{background:var(--spruce-soft)}
 .phone header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .tag{font:500 12px var(--mono);background:var(--amber-soft);color:var(--amber);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .legs{display:flex;flex-direction:column;gap:6px}
-.leg{display:flex;justify-content:space-between;background:var(--spruce);color:var(--bg);border-radius:10px;padding:10px 12px;font-weight:600;border:0;cursor:pointer;font-family:var(--body);font-size:14px}
+.mapsbox{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table.maps{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+table.maps th,table.maps td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+table.maps th{font-weight:600;color:var(--muted);font-size:12px}
+table.maps a{color:var(--spruce);font-weight:600;margin-right:8px}
+table.maps .gain{color:var(--spruce);font-weight:600}
+.leg{text-decoration:none;display:flex;justify-content:space-between;background:var(--spruce);color:var(--bg);border-radius:10px;padding:10px 12px;font-weight:600;border:0;cursor:pointer;font-family:var(--body);font-size:14px}
 .tot{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
 .tot div{background:var(--spruce-soft);border-radius:8px;padding:6px}
 .tot b{display:block;font:600 18px var(--display);font-variant-numeric:tabular-nums}
@@ -169,6 +175,13 @@ ol.stops li.done{opacity:.55}
       <p class="note">Mock only. Buttons work, but nothing is saved or sent, and the stop labels are placeholders.</p>
     </div>
   </div>
+</section>
+
+<section class="stack" aria-labelledby="h-maps">
+  <h2 id="h-maps">Sorted Google Maps links for every route</h2>
+  <p>Google Maps will not reorder stops, so the order of the link is the order the driver drives. The old site's link used sign-up order. Each load below has two links built from the same stops: sheet order, and sorted into the shortest drive. Both start at the Cedar Park drop-off. Links are cut into legs of 9 stops because a phone takes about that many in one trip, and each leg starts where the last one ended.</p>
+  <div class="mapsbox"><table class="maps" id="maps"></table></div>
+  <p class="note">Demo only: this page has shifted coordinates, not addresses, so the links open Maps near the real neighborhoods but not at real houses. The troop's tool would build the same links from the actual addresses. Drive minutes are the lab's planned time for the load at 2 minutes per stop.</p>
 </section>
 
 <section class="stack" aria-labelledby="h-recs">
@@ -357,6 +370,21 @@ function drawT25(){
     rows.map(k=>{const r=D.y25[k];return `<tr class="${k===cur?'pick':''}"><td>${LABEL[k].replace('2026','2025')}</td><td>${r.loads}</td><td>${r.hours.toFixed(1)}</td><td>${k==='published'?'':Math.round((r.hours/D.y25.published.hours-1)*100)+'%'}</td><td>${r.longest_min} min</td><td>${r.spread_mean_km.toFixed(1)} km</td><td>${need(k)}</td></tr>`}).join('')+
     `</tbody><caption style="caption-side:bottom;text-align:left;padding:8px 12px;font-size:12px;color:var(--muted)">* at 3 minutes per stop, longest load first</caption>`;
 }
+const ll=k=>k===-1?D.depot:k===-2?D.rb:[D.pts[k][0],D.pts[k][1]];
+const gm=a=>a.join(',');
+function mapLegs(seq){
+  const stops=seq.filter(k=>k>=0), legs=[]; let origin=-1;
+  for(let i=0;i<stops.length;i+=9){const g=stops.slice(i,i+9), dest=g[g.length-1], mid=g.slice(0,-1);
+    legs.push({a:i+1,b:i+g.length,url:'https://www.google.com/maps/dir/?api=1&travelmode=driving&origin='+gm(ll(origin))+'&destination='+gm(ll(dest))+(mid.length?'&waypoints='+mid.map(k=>gm(ll(k))).join('%7C'):'')});
+    origin=dest}
+  return legs;
+}
+function drawMaps(){
+  const P=D.sc.published.routes, O=D.sc.ordered.routes;
+  document.getElementById('maps').innerHTML='<tr><th>Load</th><th>Stops</th><th>Trees</th><th>Sheet order</th><th>Sorted</th><th>Saves</th><th>Sheet-order link</th><th>Sorted link</th></tr>'+
+    P.map((r,i)=>{const o=O[i], n=r.s.filter(k=>k>=0).length, lk=s=>mapLegs(s).map(l=>`<a href="${l.url}" target="_blank" rel="noopener">${l.a}–${l.b}</a>`).join('');
+      return `<tr><td>${i+1}</td><td>${n}</td><td>${r.t}</td><td>${r.m} min</td><td>${o.m} min</td><td class="gain">${r.m-o.m} min</td><td>${lk(r.s)}</td><td>${lk(o.s)}</td></tr>`}).join('');
+}
 function drawPhone(){
   const r=D.sc.twobase.routes.filter(r=>r.s.length>=17&&r.s.length<=22)[0], stops=r.s.filter(k=>k>=0);
   const legs=[]; for(let i=0;i<stops.length;i+=9) legs.push([i+1,Math.min(i+9,stops.length)]);
@@ -365,7 +393,7 @@ function drawPhone(){
     const got=stops.reduce((a,k,i)=>a+(state[i]==='picked'||state[i]==='nomoney'?D.pts[k][2]:0),0);
     const done=state.filter(Boolean).length, nm=state.filter(x=>x==='nomoney').length;
     ph.innerHTML=`<header><h3>Load 7 · Trailer 3</h3><span class="tag">${r.t} trees · ~${r.m} min</span></header>
-    <div class="legs">${legs.map(([a,b])=>`<button type="button" class="leg"><span>Navigate stops ${a}–${b}</span><span>↗</span></button>`).join('')}</div>
+    <div class="legs">${legs.map(([a,b],li)=>`<a class="leg" href="${mapLegs(r.s)[li].url}" target="_blank" rel="noopener"><span>Navigate stops ${a}–${b}</span><span>↗</span></a>`).join('')}</div>
     <div class="tot"><div><b>${done}/${stops.length}</b><span>stops done</span></div><div><b>${got}</b><span>trees on trailer</span></div><div><b>${nm}</b><span>no money</span></div></div>
     <ol class="stops">${stops.map((k,i)=>`<li class="${state[i]?'done':''}"><span class="num">${i+1}</span><div><div><b>House ${i+1}</b> · ${D.pts[k][2]} tree${D.pts[k][2]>1?'s':''}</div>
       <div class="mark" role="group" aria-label="Stop ${i+1} result">${[['picked','Picked up'],['none','No tree'],['nomoney','No money']].map(([v,l])=>`<button type="button" data-i="${i}" data-v="${v}" aria-pressed="${state[i]===v}">${l}</button>`).join('')}</div></div></li>`).join('')}</ol>`;
@@ -376,5 +404,5 @@ function drawPhone(){
 function render(){drawSeg();drawMap();drawMetrics();drawDay();drawIdle();drawFill();drawT25()}
 try{const v=localStorage.getItem('plan3'); if(v&&D.sc[v]) cur=v}catch(e){}
 document.getElementById('lines').onclick=e=>{showLines=!showLines;e.target.setAttribute('aria-pressed',showLines);drawMap()};
-render(); drawPhone();
+render(); drawPhone(); drawMaps();
 </script>
