@@ -179,7 +179,9 @@ ol.stops li.done{opacity:.55}
 
 <section class="stack" aria-labelledby="h-maps">
   <h2 id="h-maps">Sorted Google Maps links for every route</h2>
-  <p>Google Maps will not reorder stops, so the order of the link is the order the driver drives. The old site's link used sign-up order. Each load below has two links built from the same stops: sheet order, and sorted into the shortest drive. Both start at the Cedar Park drop-off. Links are cut into legs of 9 stops because a phone takes about that many in one trip, and each leg starts where the last one ended.</p>
+  <p>Google Maps will not reorder stops, so the order of the link is the order the driver drives. The old site's link used sign-up order. Each load below has two links built from the same stops: sheet order, and sorted into the shortest drive. Both start at the Cedar Park drop-off. </p>
+  <h3>Why legs of 9?</h3>
+  <p>A Google Maps link can hold a starting point, a destination and at most 9 stops in between, and the phone app is less forgiving than the website: a longer link gets trimmed or refuses to open. A load can have 22 stops, so each link covers 9 and the next link starts at the last stop of the one before. The driver taps "Navigate stops 1–9", does those houses, then taps "10–18", and so on. Nine leaves room under the limit and keeps each leg short enough to follow without scrolling a long list.</p>
   <div class="mapsbox"><table class="maps" id="maps"></table></div>
   <p class="note">Demo only: this page has shifted coordinates, not addresses, so the links open Maps near the real neighborhoods but not at real houses. The troop's tool would build the same links from the actual addresses. Drive minutes are the lab's planned time for the load at 2 minutes per stop.</p>
 </section>
