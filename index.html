@@ -294,9 +294,13 @@ function drawDay(){
     pts.forEach(p=>el('circle',{cx:p[0],cy:p[1],r:sel?4:2.5,fill:COLORS[k],'fill-opacity':sel?1:.6},svg));
     ends.push({k,y:pts[5][1],sel});
   });
+  {const pts=[5,6,7,8,9,10].map(n=>[x(n),y(Math.min(Math.max(...schedule('published',n).free)/3600,h1))]);
+   el('polyline',{points:pts.map(q=>q.join(',')).join(' '),fill:'none',stroke:COLORS.published,'stroke-width':2,'stroke-dasharray':'5 4'},svg);
+   pts.forEach(q=>el('circle',{cx:q[0],cy:q[1],r:3,fill:'var(--panel)',stroke:COLORS.published,'stroke-width':1.5},svg));
+   ends.push({k:'published',y:pts[5][1],sel:false})}
   ends.sort((a,b)=>a.y-b.y); let last=-99;
   ends.forEach(e=>{const yy=Math.max(e.y,last+14); last=yy;
-    el('text',{x:R+10,y:yy+4,fill:COLORS[e.k],'font-weight':e.sel?600:400},svg).textContent=LABEL[e.k]});
+    el('text',{x:R+10,y:yy+4,fill:COLORS[e.k],'font-weight':e.sel?600:400},svg).textContent=LABEL[e.k]+(e.k==='published'?' (approx.)':'')});
   const o=D.sc.ordered.day, need=k=>{const d=D.sc[k].day[`${svc}|longest`];if(!d) return 'an unknown number of';for(let n=5;n<=10;n++) if(d[n]<=7) return n; return 'more than 10'};
   document.getElementById('daynote').textContent=`${LABEL[cur]} needs ${need(cur)} trailers to finish by 3 pm at ${svc} min per stop; the ordered published routes need ${need('ordered')}. Handing out the nearest load instead of the longest would put the ordered published routes at ${clock(o[svc+'|nearest']['8'])} with 8 trailers instead of ${clock(o[svc+'|longest']['8'])}.`;
 }
@@ -324,8 +328,8 @@ function drawIdle(){
     el('text',{x:L-8,y:y+rh/2+4,'text-anchor':'end',class:'mut'},svg).textContent='Trailer '+(row+1);
     if(end-free[i]>900) el('text',{x:x(free[i])+8,y:y+rh/2+4,class:'mut'},svg).textContent=`free ${clock(free[i]/3600)}`});
   const idle=free.reduce((s,f)=>s+(end-f),0)/3600, early=free.filter(f=>end-f>3600).length;
-  const o=schedule('ordered',ntr), oend=Math.max(...o.free), oidle=o.free.reduce((s,f)=>s+(oend-f),0)/3600;
-  document.getElementById('idlenote').textContent=`${LABEL[cur]}, ${ntr} trailers: last tree in ${clock(end/3600)}. ${early} of ${ntr} trailers finish more than an hour before that, ${idle.toFixed(1)} trailer-hours of free help in total. Ordered published routes: last tree in ${clock(oend/3600)}, ${oidle.toFixed(1)} trailer-hours free. Free trailer-hours by plan: ${ORDER.filter(k=>k!=='published').map(k=>{const f=schedule(k,ntr).free,e=Math.max(...f);return LABEL[k]+' '+(f.reduce((s,v)=>s+e-v,0)/3600).toFixed(1)}).join(', ')}. Approximate: loads are timed as planned, so this skips the day sim's re-ordering for the noon drop-off switch, and the two-base plan looks about 40 minutes better than in the day sim above.`;
+  const pend=Math.max(...schedule('published',ntr).free), o=schedule('ordered',ntr), oend=Math.max(...o.free), oidle=o.free.reduce((s,f)=>s+(oend-f),0)/3600;
+  document.getElementById('idlenote').textContent=`${LABEL[cur]}, ${ntr} trailers: last tree in ${clock(end/3600)}. ${early} of ${ntr} trailers finish more than an hour before that, ${idle.toFixed(1)} trailer-hours of free help in total. Published sheet-order routes: last tree in ${clock(pend/3600)}. Ordered published routes: last tree in ${clock(oend/3600)}, ${oidle.toFixed(1)} trailer-hours free. Free trailer-hours by plan: ${ORDER.map(k=>{const f=schedule(k,ntr).free,e=Math.max(...f);return LABEL[k]+' '+(f.reduce((s,v)=>s+e-v,0)/3600).toFixed(1)}).join(', ')}. Published 2026 is not in the full day sim, so its line on the chart above is approximate too (same method as here; for ordered routes it lands within about 6 minutes of the sim at 8 trailers). Loads are timed as planned, so this skips the day sim's re-ordering for the noon drop-off switch, and the two-base plan looks about 40 minutes better than in the day sim above.`;
 }
 function drawFill(){
   const svg=document.getElementById('fill'); svg.innerHTML='';
