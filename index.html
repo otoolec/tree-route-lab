@@ -125,6 +125,14 @@ ol.stops li.done{opacity:.55}
   <p class="note" id="daynote"></p>
 </section>
 
+<section class="stack" aria-labelledby="h-idle">
+  <h2 id="h-idle">Who finishes early?</h2>
+  <p>The same Saturday, one row per trailer. Dark bars are loads (drive, stops and unloading), grey is lunch, and the open space on the right is a trailer that is done while others are still out. Those trailers can help unload at the drop-off. Uses the minutes per stop chosen above.</p>
+  <div class="seg" id="nseg" role="group" aria-label="Trailers"></div>
+  <div class="chart"><svg id="idle" viewBox="0 0 900 360"></svg></div>
+  <p class="note" id="idlenote"></p>
+</section>
+
 <section class="stack" aria-labelledby="h-fill">
   <h2 id="h-fill">How full is each trailer?</h2>
   <p class="note">Each dot is one load. The dashed line is the 22-tree limit. Bars show total trailer time for the day at 2 minutes per stop.</p>
@@ -292,6 +300,33 @@ function drawDay(){
   const o=D.sc.ordered.day, need=k=>{const d=D.sc[k].day[`${svc}|longest`];if(!d) return 'an unknown number of';for(let n=5;n<=10;n++) if(d[n]<=7) return n; return 'more than 10'};
   document.getElementById('daynote').textContent=`${LABEL[cur]} needs ${need(cur)} trailers to finish by 3 pm at ${svc} min per stop; the ordered published routes need ${need('ordered')}. Handing out the nearest load instead of the longest would put the ordered published routes at ${clock(o[svc+'|nearest']['8'])} with 8 trailers instead of ${clock(o[svc+'|longest']['8'])}.`;
 }
+let ntr=8;
+function schedule(k,n){
+  const loads=D.sc[k].routes.map(r=>(r.m+(+svc-2)*r.s.filter(q=>q>=0).length+10)*60).sort((a,b)=>b-a);
+  const free=Array(n).fill(0), ate=Array(n).fill(false), bars=Array.from({length:n},()=>[]);
+  loads.forEach(d=>{let j=0;for(let i=1;i<n;i++) if(free[i]<free[j]) j=i;
+    bars[j].push([free[j],free[j]+d,'load']); free[j]+=d;
+    if(!ate[j]&&free[j]>=3.5*3600){bars[j].push([free[j],free[j]+1800,'lunch']);free[j]+=1800;ate[j]=true}});
+  return {bars,free};
+}
+function drawIdle(){
+  const ns=document.getElementById('nseg');
+  ns.innerHTML=[6,7,8,9].map(v=>`<button type="button" data-v="${v}" aria-pressed="${v===ntr}">${v} trailers</button>`).join('');
+  ns.querySelectorAll('button').forEach(b=>b.onclick=()=>{ntr=+b.dataset.v;drawIdle()});
+  const svg=document.getElementById('idle'); svg.innerHTML='';
+  const {bars,free}=schedule(cur,ntr), end=Math.max(...free), L=70,R=870,T=14,rh=Math.min(34,300/ntr);
+  const x=s=>L+s/(Math.max(end,3600*8))*(R-L)*.98;
+  const order=free.map((f,i)=>i).sort((a,b)=>free[a]-free[b]);
+  for(let h=0;h<=Math.ceil(end/3600);h++){el('line',{x1:x(h*3600),x2:x(h*3600),y1:T,y2:T+ntr*rh,stroke:'var(--line)'},svg);
+    el('text',{x:x(h*3600),y:T+ntr*rh+16,'text-anchor':'middle',class:'mut'},svg).textContent=clock(h).replace(':00','')}
+  order.forEach((i,row)=>{const y=T+row*rh;
+    bars[i].forEach(([a,b,ty])=>el('rect',{x:x(a),y:y+3,width:Math.max(1,x(b)-x(a)-1),height:rh-6,fill:ty==='lunch'?'var(--line)':COLORS[cur],'fill-opacity':ty==='lunch'?1:.85},svg));
+    el('text',{x:L-8,y:y+rh/2+4,'text-anchor':'end',class:'mut'},svg).textContent='Trailer '+(row+1);
+    if(end-free[i]>900) el('text',{x:x(free[i])+8,y:y+rh/2+4,class:'mut'},svg).textContent=`free ${clock(free[i]/3600)}`});
+  const idle=free.reduce((s,f)=>s+(end-f),0)/3600, early=free.filter(f=>end-f>3600).length;
+  const o=schedule('ordered',ntr), oend=Math.max(...o.free), oidle=o.free.reduce((s,f)=>s+(oend-f),0)/3600;
+  document.getElementById('idlenote').textContent=`${LABEL[cur]}, ${ntr} trailers: last tree in ${clock(end/3600)}. ${early} of ${ntr} trailers finish more than an hour before that, ${idle.toFixed(1)} trailer-hours of free help in total. Ordered published routes: last tree in ${clock(oend/3600)}, ${oidle.toFixed(1)} trailer-hours free. Free trailer-hours by plan: ${ORDER.filter(k=>k!=='published').map(k=>{const f=schedule(k,ntr).free,e=Math.max(...f);return LABEL[k]+' '+(f.reduce((s,v)=>s+e-v,0)/3600).toFixed(1)}).join(', ')}. Approximate: loads are timed as planned, so this skips the day sim's re-ordering for the noon drop-off switch, and the two-base plan looks about 40 minutes better than in the day sim above.`;
+}
 function drawFill(){
   const svg=document.getElementById('fill'); svg.innerHTML='';
   const L=170,R=880,rowH=48,top=34,maxT=26,maxH=48;
@@ -334,7 +369,7 @@ function drawPhone(){
   }
   paint();
 }
-function render(){drawSeg();drawMap();drawMetrics();drawDay();drawFill();drawT25()}
+function render(){drawSeg();drawMap();drawMetrics();drawDay();drawIdle();drawFill();drawT25()}
 try{const v=localStorage.getItem('plan3'); if(v&&D.sc[v]) cur=v}catch(e){}
 document.getElementById('lines').onclick=e=>{showLines=!showLines;e.target.setAttribute('aria-pressed',showLines);drawMap()};
 render(); drawPhone();
